@@ -10,9 +10,10 @@ const PORT = process.env.PORT || 3000;
 const WEBAPP_URL = process.env.WEBAPP_URL || "https://susithelizard-susicoin.onrender.com";
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_ID = process.env.ADMIN_TELEGRAM_ID;
-const BOT_USERNAME = process.env.BOT_USERNAME || "Susithelizard";
+const BOT_USERNAME = process.env.BOT_USERNAME || "Susithelizardbot";
 const ADSGRAM_BLOCK_ID = process.env.ADSGRAM_BLOCK_ID || "";
 const ADSGRAM_REWARD_SECRET = process.env.ADSGRAM_REWARD_SECRET || "";
+const MONETAG_ZONE_ID = process.env.MONETAG_ZONE_ID || "11744566";
 
 const START_BALANCE = 100;
 const REFERRAL_REWARD = 1000;
@@ -23,6 +24,7 @@ const MIN_WITHDRAWAL = 30000;
 if (!BOT_TOKEN) console.warn("BOT_TOKEN is missing. Telegram bot features are disabled.");
 if (!ADSGRAM_BLOCK_ID) console.warn("ADSGRAM_BLOCK_ID is missing. Rewarded ads are disabled until configured.");
 if (!ADSGRAM_REWARD_SECRET) console.warn("ADSGRAM_REWARD_SECRET is missing. AdsGram server-side reward confirmation is disabled.");
+if (!MONETAG_ZONE_ID) console.warn("MONETAG_ZONE_ID is missing. Monetag rewarded ads are disabled.");
 
 app.use(express.json({ limit: "50kb" }));
 
@@ -57,6 +59,17 @@ CREATE TABLE IF NOT EXISTS ad_claims(
   used INTEGER DEFAULT 0,
   PRIMARY KEY(user_id, claim_date)
 );
+CREATE TABLE IF NOT EXISTS monetag_claims(
+  user_id INTEGER,
+  claim_date TEXT,
+  used INTEGER DEFAULT 0,
+  PRIMARY KEY(user_id, claim_date)
+);
+CREATE TABLE IF NOT EXISTS monetag_sessions(
+  nonce TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  created_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS withdrawals(
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,
@@ -80,7 +93,10 @@ function cleanUser(u) {
   return { id: Number(u.id), username: u.username || "", first_name: u.first_name || "" };
 }
 function adUsage(id) {
-  return db.prepare("SELECT used FROM ad_claims WHERE user_id=? AND claim_date=?").get(id, istDate())?.used || 0;
+  const date = istDate();
+  const adsgram = db.prepare("SELECT used FROM ad_claims WHERE user_id=? AND claim_date=?").get(id, date)?.used || 0;
+  const monetag = db.prepare("SELECT used FROM monetag_claims WHERE user_id=? AND claim_date=?").get(id, date)?.used || 0;
+  return adsgram + monetag;
 }
 function ensureUser(u, ref = "") {
   const user = cleanUser(u);
@@ -130,6 +146,9 @@ app.get("/health", (req, res) => res.json({ ok: true, service: "susithelizard-su
 app.get("/api/config", (req, res) => res.json({
   adConfigured: Boolean(ADSGRAM_BLOCK_ID && ADSGRAM_REWARD_SECRET),
   adsgramBlockId: ADSGRAM_BLOCK_ID,
+  monetagEnabled: Boolean(MONETAG_ZONE_ID),
+  monetagZoneId: MONETAG_ZONE_ID,
+  monetagFunction: MONETAG_ZONE_ID ? `show_${MONETAG_ZONE_ID}` : "",
   adReward: AD_REWARD,
   adDailyLimit: AD_DAILY_LIMIT,
   minWithdrawal: MIN_WITHDRAWAL,
@@ -185,7 +204,9 @@ app.post("/api/ad-status", (req, res) => {
     remaining: Math.max(0, AD_DAILY_LIMIT - used),
     limit: AD_DAILY_LIMIT,
     reward: AD_REWARD,
-    providerConfigured: Boolean(ADSGRAM_BLOCK_ID && ADSGRAM_REWARD_SECRET)
+    providerConfigured: Boolean(ADSGRAM_BLOCK_ID && ADSGRAM_REWARD_SECRET) || Boolean(MONETAG_ZONE_ID),
+    adsgramConfigured: Boolean(ADSGRAM_BLOCK_ID && ADSGRAM_REWARD_SECRET),
+    monetagConfigured: Boolean(MONETAG_ZONE_ID)
   });
 });
 
@@ -220,6 +241,48 @@ app.post("/api/ad-complete", (req, res) => {
   if (!ADSGRAM_BLOCK_ID || !ADSGRAM_REWARD_SECRET) return res.json({ ok: false, message: "Rewarded ads are not configured yet." });
   const used = adUsage(tg.id);
   res.json({ ok: true, used, remaining: Math.max(0, AD_DAILY_LIMIT - used) });
+});
+
+// -------------------- Monetag rewarded ads --------------------
+app.post("/api/monetag-start", (req, res) => {
+  const tg = auth(req);
+  if (!tg) return jsonError(res, 401, "Unauthorized");
+  if (!MONETAG_ZONE_ID) return jsonError(res, 400, "Monetag rewarded ads are not configured yet.");
+  if (adUsage(tg.id) >= AD_DAILY_LIMIT) return jsonError(res, 400, "Daily ad limit reached.");
+
+  const nonce = crypto.randomBytes(24).toString("hex");
+  db.prepare("INSERT INTO monetag_sessions(nonce,user_id,created_at) VALUES (?,?,?)")
+    .run(nonce, tg.id, Date.now());
+  res.json({ ok: true, nonce, reward: AD_REWARD, remaining: Math.max(0, AD_DAILY_LIMIT - adUsage(tg.id)) });
+});
+
+// Monetag's rewarded promise resolves after the rewarded ad flow completes.
+// The client must present the short-lived one-time nonce created before opening the ad.
+app.post("/api/monetag-complete", (req, res) => {
+  const tg = auth(req);
+  if (!tg) return jsonError(res, 401, "Unauthorized");
+  const nonce = String(req.body.nonce || "");
+  if (!nonce) return jsonError(res, 400, "Missing reward session.");
+
+  const session = db.prepare("SELECT * FROM monetag_sessions WHERE nonce=? AND user_id=?").get(nonce, tg.id);
+  if (!session || Date.now() - Number(session.created_at) > 5 * 60 * 1000) {
+    if (session) db.prepare("DELETE FROM monetag_sessions WHERE nonce=?").run(nonce);
+    return jsonError(res, 400, "Reward session expired or already used.");
+  }
+
+  const date = istDate();
+  const tx = db.transaction(() => {
+    db.prepare("DELETE FROM monetag_sessions WHERE nonce=?").run(nonce);
+    if (adUsage(tg.id) >= AD_DAILY_LIMIT) return false;
+    const row = db.prepare("SELECT used FROM monetag_claims WHERE user_id=? AND claim_date=?").get(tg.id, date);
+    if (row) db.prepare("UPDATE monetag_claims SET used=used+1 WHERE user_id=? AND claim_date=?").run(tg.id, date);
+    else db.prepare("INSERT INTO monetag_claims(user_id,claim_date,used) VALUES (?,?,1)").run(tg.id, date);
+    db.prepare("UPDATE users SET balance=balance+? WHERE id=?").run(AD_REWARD, tg.id);
+    return true;
+  });
+  const credited = tx();
+  if (!credited) return res.json({ ok: false, message: "Daily ad limit reached." });
+  res.json({ ok: true, reward: AD_REWARD, used: adUsage(tg.id), remaining: Math.max(0, AD_DAILY_LIMIT - adUsage(tg.id)) });
 });
 
 // -------------------- Withdrawals --------------------
