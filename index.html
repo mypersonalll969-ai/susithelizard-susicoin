@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Susithelizard • Susi Coins</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#08120f;color:#f3fff9;font-family:Inter,system-ui,sans-serif}
+.wrap{max-width:520px;margin:auto;padding:18px 16px 35px}.hero{background:linear-gradient(145deg,#123f30,#0b201a);border:1px solid #245a45;border-radius:24px;padding:22px;box-shadow:0 15px 40px #0006}
+.logo{font-size:38px}.muted{color:#9bb7aa}.balance{font-size:38px;font-weight:800;margin:12px 0}.coin{font-size:14px;color:#8ff0bd}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}.card{background:#10251e;border:1px solid #244638;border-radius:18px;padding:16px}.num{font-size:23px;font-weight:750}
+button{width:100%;border:0;border-radius:14px;padding:13px;margin-top:10px;font-weight:750;background:#9df7c5;color:#062016;cursor:pointer}.secondary{background:#18362b;color:#dffff0}
+h2{font-size:19px;margin:24px 0 10px}.task{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#10251e;border:1px solid #244638;padding:14px;border-radius:16px;margin:8px 0}.task button{width:auto;margin:0;padding:9px 12px}.rank{display:flex;justify-content:space-between;padding:11px 2px;border-bottom:1px solid #19352b}.notice{margin-top:14px;color:#9bb7aa;font-size:12px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="logo">🦎</div>
+    <div class="muted">SUSITHELIZARD</div>
+    <div class="balance" id="balance">—</div>
+    <div class="coin">SUSI COINS</div>
+    <button onclick="daily()">🎁 Claim Daily Reward</button>
+    <button class="secondary" onclick="share()">👥 Invite Friends</button>
+  </div>
+  <div class="grid">
+    <div class="card"><div class="muted">Referrals</div><div class="num" id="refs">—</div></div>
+    <div class="card"><div class="muted">Your ID</div><div class="num" id="uid">—</div></div>
+  </div>
+  <h2>⚡ Earn Susi Coins</h2><div id="tasks"></div>
+  <h2>🏆 Leaderboard</h2><div class="card" id="board">Loading…</div>
+  <div class="notice">Susi Coins are reward points in this starter app. Do not represent them as guaranteed cash value or guaranteed investment returns.</div>
+</div>
+<script>
+const tg=window.Telegram.WebApp; tg.ready(); tg.expand();
+const initData=tg.initData;
+let me=null;
+const qs=new URLSearchParams(location.search); const ref=qs.get("ref")||"";
+async function api(path,body={}){const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({initData,ref,...body})});return r.json()}
+async function boot(){
+ if(!initData){document.body.innerHTML='<div class="wrap"><div class="card">Open this page from your Telegram bot.</div></div>';return}
+ const a=await api("/api/auth"); if(a.error){alert(a.error);return} me=a.user; render();
+ const [t,b]=await Promise.all([fetch("/api/tasks").then(r=>r.json()),fetch("/api/leaderboard").then(r=>r.json())]);
+ document.getElementById("tasks").innerHTML=t.map(x=>`<div class="task"><div><b>${x.title}</b><div class="muted">+${x.reward} SUSI</div></div><button onclick="claim(${x.id})">Claim</button></div>`).join("");
+ document.getElementById("board").innerHTML=b.map((x,i)=>`<div class="rank"><span>#${i+1} ${x.first_name||x.username||"Player"}</span><b>${x.balance} SUSI</b></div>`).join("");
+}
+function render(){balance.textContent=me.balance.toLocaleString();refs.textContent=me.referrals;uid.textContent=me.id}
+async function daily(){const x=await api("/api/daily");alert(x.ok?`+${x.reward} SUSI 🎉`:x.message);if(x.ok){me.balance+=x.reward;render()}}
+async function claim(taskId){const x=await api("/api/tasks/claim",{taskId});alert(x.ok?`+${x.reward} SUSI 🎉`:x.error);if(x.ok){me.balance+=x.reward;render()}}
+function share(){
+ const link=`https://t.me/${tg.initDataUnsafe?.user?.username||"YOUR_BOT"}?start=ref_${me.id}`;
+ tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Join Susithelizard and earn Susi Coins 🦎")}`);
+}
+boot();
+</script>
+</body>
+</html>
