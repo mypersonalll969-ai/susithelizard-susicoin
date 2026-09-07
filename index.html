@@ -1,58 +1,10 @@
 <!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Susithelizard • Susi Coins</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-*{box-sizing:border-box}body{margin:0;background:#08120f;color:#f3fff9;font-family:Inter,system-ui,sans-serif}
-.wrap{max-width:520px;margin:auto;padding:18px 16px 35px}.hero{background:linear-gradient(145deg,#123f30,#0b201a);border:1px solid #245a45;border-radius:24px;padding:22px;box-shadow:0 15px 40px #0006}
-.logo{font-size:38px}.muted{color:#9bb7aa}.balance{font-size:38px;font-weight:800;margin:12px 0}.coin{font-size:14px;color:#8ff0bd}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}.card{background:#10251e;border:1px solid #244638;border-radius:18px;padding:16px}.num{font-size:23px;font-weight:750}
-button{width:100%;border:0;border-radius:14px;padding:13px;margin-top:10px;font-weight:750;background:#9df7c5;color:#062016;cursor:pointer}.secondary{background:#18362b;color:#dffff0}
-h2{font-size:19px;margin:24px 0 10px}.task{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#10251e;border:1px solid #244638;padding:14px;border-radius:16px;margin:8px 0}.task button{width:auto;margin:0;padding:9px 12px}.rank{display:flex;justify-content:space-between;padding:11px 2px;border-bottom:1px solid #19352b}.notice{margin-top:14px;color:#9bb7aa;font-size:12px;line-height:1.5}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <div class="hero">
-    <div class="logo">🦎</div>
-    <div class="muted">SUSITHELIZARD</div>
-    <div class="balance" id="balance">—</div>
-    <div class="coin">SUSI COINS</div>
-    <button onclick="daily()">🎁 Claim Daily Reward</button>
-    <button class="secondary" onclick="share()">👥 Invite Friends</button>
-  </div>
-  <div class="grid">
-    <div class="card"><div class="muted">Referrals</div><div class="num" id="refs">—</div></div>
-    <div class="card"><div class="muted">Your ID</div><div class="num" id="uid">—</div></div>
-  </div>
-  <h2>⚡ Earn Susi Coins</h2><div id="tasks"></div>
-  <h2>🏆 Leaderboard</h2><div class="card" id="board">Loading…</div>
-  <div class="notice">Susi Coins are reward points in this starter app. Do not represent them as guaranteed cash value or guaranteed investment returns.</div>
-</div>
-<script>
-const tg=window.Telegram.WebApp; tg.ready(); tg.expand();
-const initData=tg.initData;
-let me=null;
-const qs=new URLSearchParams(location.search); const ref=qs.get("ref")||"";
-async function api(path,body={}){const r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({initData,ref,...body})});return r.json()}
-async function boot(){
- if(!initData){document.body.innerHTML='<div class="wrap"><div class="card">Open this page from your Telegram bot.</div></div>';return}
- const a=await api("/api/auth"); if(a.error){alert(a.error);return} me=a.user; render();
- const [t,b]=await Promise.all([fetch("/api/tasks").then(r=>r.json()),fetch("/api/leaderboard").then(r=>r.json())]);
- document.getElementById("tasks").innerHTML=t.map(x=>`<div class="task"><div><b>${x.title}</b><div class="muted">+${x.reward} SUSI</div></div><button onclick="claim(${x.id})">Claim</button></div>`).join("");
- document.getElementById("board").innerHTML=b.map((x,i)=>`<div class="rank"><span>#${i+1} ${x.first_name||x.username||"Player"}</span><b>${x.balance} SUSI</b></div>`).join("");
-}
-function render(){balance.textContent=me.balance.toLocaleString();refs.textContent=me.referrals;uid.textContent=me.id}
-async function daily(){const x=await api("/api/daily");alert(x.ok?`+${x.reward} SUSI 🎉`:x.message);if(x.ok){me.balance+=x.reward;render()}}
-async function claim(taskId){const x=await api("/api/tasks/claim",{taskId});alert(x.ok?`+${x.reward} SUSI 🎉`:x.error);if(x.ok){me.balance+=x.reward;render()}}
-function share(){
- const link=`https://t.me/${tg.initDataUnsafe?.user?.username||"YOUR_BOT"}?start=ref_${me.id}`;
- tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent("Join Susithelizard and earn Susi Coins 🦎")}`);
-}
-boot();
-</script>
-</body>
-</html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Susithelizard • Susi Coins</title><script src="https://telegram.org/js/telegram-web-app.js"></script><style>
+*{box-sizing:border-box}body{margin:0;background:#08120f;color:#f3fff9;font-family:Inter,system-ui,sans-serif}.wrap{max-width:520px;margin:auto;padding:18px 16px 35px}.hero{background:linear-gradient(145deg,#123f30,#0b201a);border:1px solid #245a45;border-radius:24px;padding:22px;box-shadow:0 15px 40px #0006}.logo{font-size:38px}.muted{color:#9bb7aa}.balance{font-size:38px;font-weight:800;margin:12px 0}.coin{font-size:14px;color:#8ff0bd}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}.card{background:#10251e;border:1px solid #244638;border-radius:18px;padding:16px}.num{font-size:23px;font-weight:750}button{width:100%;border:0;border-radius:14px;padding:13px;margin-top:10px;font-weight:750;background:#9df7c5;color:#062016;cursor:pointer}.secondary{background:#18362b;color:#dffff0}button:disabled{opacity:.5;cursor:not-allowed}h2{font-size:19px;margin:24px 0 10px}.task{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#10251e;border:1px solid #244638;padding:14px;border-radius:16px;margin:8px 0}.task button{width:auto;margin:0;padding:9px 12px}.rank{display:flex;justify-content:space-between;padding:11px 2px;border-bottom:1px solid #19352b}.notice{margin-top:14px;color:#9bb7aa;font-size:12px;line-height:1.5}.wallet{background:#10251e;border:1px solid #244638;border-radius:18px;padding:16px}.input{width:100%;padding:13px;border-radius:12px;border:1px solid #315647;background:#0b1b16;color:#fff;margin-top:8px}.history{font-size:13px;margin-top:12px}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#18362b;color:#bfffdc}
+</style></head><body><div class="wrap"><div class="hero"><div class="logo">🦎</div><div class="muted">SUSITHELIZARD</div><div class="balance" id="balance">—</div><div class="coin">SUSI COINS</div><button onclick="daily()">🎁 Claim Daily Reward</button><button class="secondary" onclick="share()">👥 Invite Friends — +1,000 SUSI</button></div>
+<div class="grid"><div class="card"><div class="muted">Referrals</div><div class="num" id="refs">—</div></div><div class="card"><div class="muted">Your ID</div><div class="num" id="uid">—</div></div></div>
+<h2>⚡ Earn Susi Coins</h2><div id="tasks"></div>
+<h2>📺 Watch Ads</h2><div class="task"><div><b>Watch a rewarded ad</b><div class="muted">+50 SUSI per completed ad</div><div class="muted" id="adStatus">20 ads available today</div></div><button id="adBtn" onclick="watchAd()">Watch Ad</button></div>
+<h2>💰 Wallet</h2><div class="wallet"><div class="muted">Available Balance</div><div class="num" id="walletBalance">—</div><div class="muted" style="margin-top:8px">Minimum withdrawal: <b>30,000 SUSI (₹300)</b></div><button onclick="cashout()">Cash Out via UPI</button><div id="history" class="history"></div></div>
+<h2>🏆 Leaderboard</h2><div class="card" id="board">Loading…</div><div class="notice">100 SUSI = ₹1 for the app's reward accounting. Withdrawals are requests reviewed and paid by the app operator; this does not guarantee cash value or investment returns.</div></div>
+<script>const tg=window.Telegram.WebApp;tg.ready();tg.expand();const initData=tg.initData;let me=null;let adState={used:0,remaining:20};const qs=new URLSearchParams(location.search);const ref=qs.get('ref')||'';async function api(path,body={}){const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({initData,ref,...body})});return r.json()}async function boot(){if(!initData){document.body.innerHTML='<div class="wrap"><div class="card">Open this page from your Telegram bot.</div></div>';return}const a=await api('/api/auth');if(a.error){alert(a.error);return}me=a.user;render();const [t,b,ad,h]=await Promise.all([fetch('/api/tasks').then(r=>r.json()),fetch('/api/leaderboard').then(r=>r.json()),api('/api/ad-status'),api('/api/withdrawals')]);document.getElementById('tasks').innerHTML=t.map(x=>`<div class="task"><div><b>${x.title}</b><div class="muted">+${x.reward} SUSI</div></div><button onclick="claim(${x.id})">Claim</button></div>`).join('');document.getElementById('board').innerHTML=b.map((x,i)=>`<div class="rank"><span>#${i+1} ${x.first_name||x.username||'Player'}</span><b>${x.balance} SUSI</b></div>`).join('');if(ad.ok){adState=ad;updateAdUI()}renderHistory(h)}function render(){balance.textContent=Number(me.balance).toLocaleString();walletBalance.textContent=Number(me.balance).toLocaleString()+' SUSI';refs.textContent=me.referrals;uid.textContent=me.id}function updateAdUI(){adStatus.textContent=`${adState.remaining} of 20 ads remaining today`;adBtn.disabled=adState.remaining<=0}async function daily(){const x=await api('/api/daily');alert(x.ok?`Day ${x.day}: +${x.reward} SUSI 🎉`:x.message);if(x.ok){me.balance+=x.reward;render()}}async function claim(taskId){const x=await api('/api/tasks/claim',{taskId});alert(x.ok?`+${x.reward} SUSI 🎉`:x.error);if(x.ok){me.balance+=x.reward;render()}}async function watchAd(){const x=await api('/api/ad-complete');if(!x.ok){alert(x.message||x.error||'Ad service unavailable');return}me.balance+=50;adState.remaining=x.remaining;adState.used=x.used;render();updateAdUI();alert('+50 SUSI 🎉 Ad completed!')}async function cashout(){if(Number(me.balance)<30000){alert(`You need ${(30000-Number(me.balance)).toLocaleString()} more SUSI to withdraw.`);return}const amount=prompt('Enter withdrawal amount in SUSI (minimum 30,000):','30000');if(amount===null)return;const upi=prompt('Enter your UPI ID:');if(upi===null)return;const x=await api('/api/withdraw',{amountSusi:Number(amount),upiId:upi.trim()});alert(x.ok?'Withdrawal request submitted. Status: Pending ⏳':(x.error||'Could not submit request'));if(x.ok){me.balance=x.balance;render();loadHistory()}}async function loadHistory(){renderHistory(await api('/api/withdrawals'))}function renderHistory(h){if(!h.ok||!h.rows?.length){history.innerHTML='<div class="muted">No withdrawal requests yet.</div>';return}history.innerHTML='<b>Withdrawal history</b>'+h.rows.map(x=>`<div style="padding:9px 0;border-bottom:1px solid #19352b">${Number(x.amount_susi).toLocaleString()} SUSI (₹${(x.amount_susi/100).toFixed(2)}) · ${x.upi_id.replace(/.(?=.{3})/g,'*')} · <span class="pill">${x.status}</span></div>`).join('')}function share(){const link=`https://t.me/${tg.initDataUnsafe?.user?.username||'YOUR_BOT'}?start=ref_${me.id}`;tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Join Susithelizard and earn Susi Coins 🦎')}`)}boot();</script></body></html>
